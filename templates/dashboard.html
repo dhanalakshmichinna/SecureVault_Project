@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Cloud Security</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .file-table th {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .badge-custom {
+            font-size: 0.7em;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .card-header {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-shield-alt"></i> Cloud Security System
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    <i class="fas fa-user"></i> Welcome, {{ user.username }}
+                </span>
+                <a class="btn btn-outline-light btn-sm" href="{% url 'logout' %}">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                    <i class="fas fa-info-circle"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+            <span class="badge bg-primary">
+                <i class="fas fa-database"></i> 
+                Total Files: {{ all_files|length }}
+            </span>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-upload"></i> Upload New File</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{% url 'upload_file' %}" enctype="multipart/form-data" id="uploadForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-file"></i> Select File</label>
+                                <input type="file" class="form-control" name="file" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-camera"></i> Face Verification</label>
+                                <input type="file" class="form-control" name="face_verification" accept="image/*" required>
+                                <small class="text-muted">Take a selfie for identity verification</small>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-check-circle"></i> Upload with Face Verification
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Pending Access Requests -->
+        {% if pending_requests %}
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-bell"></i> Pending Access Requests ({{ pending_requests|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% for req in pending_requests %}
+                    <div class="alert alert-warning d-flex justify-content-between align-items-center mb-2">
+                        <div class="flex-grow-1">
+                            <strong><i class="fas fa-user"></i> {{ req.requested_by.username }}</strong> 
+                            wants access to 
+                            <strong>"{{ req.file.filename }}"</strong>
+                            <br>
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i> Requested: {{ req.requested_at|date:"M d, Y H:i" }}
+                            </small>
+                        </div>
+                        <div class="btn-group">
+                            <a href="{% url 'handle_access_request' req.id 'approve' %}" 
+                               class="btn btn-sm btn-success">
+                                <i class="fas fa-check"></i> Approve
+                            </a>
+                            <a href="{% url 'handle_access_request' req.id 'reject' %}" 
+                               class="btn btn-sm btn-danger">
+                                <i class="fas fa-times"></i> Reject
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- All Files in System -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-file-alt"></i> All Files in System</h5>
+            </div>
+            <div class="card-body">
+                {% if all_files %}
+                    <div class="table-responsive">
+                        <table class="table table-hover file-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-file"></i> Filename</th>
+                                    <th><i class="fas fa-user"></i> Owner</th>
+                                    <th><i class="fas fa-calendar"></i> Uploaded</th>
+                                    <th><i class="fas fa-cog"></i> Actions</th>
+                                    <th><i class="fas fa-info-circle"></i> Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in all_files %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-file text-primary me-2"></i>
+                                                <div>
+                                                    <strong>{{ file.filename }}</strong>
+                                                    {% if file.user == request.user %}
+                                                        <span class="badge bg-success badge-custom ms-2">My File</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-user-circle me-1"></i>
+                                            {{ file.user.username }}
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-clock me-1"></i>
+                                            {{ file.uploaded_at|date:"M d, Y H:i" }}
+                                        </td>
+                                        <td>
+                                            {% if file.user != request.user %}
+                                                <!-- Check access status using the view context -->
+                                                {% for file_id, status in file_access_status.items %}
+                                                    {% if file_id == file.id %}
+                                                        {% if status == 'approved' %}
+                                                            <button class="btn btn-sm btn-success download-btn" 
+                                                                    data-file-id="{{ file.id }}"
+                                                                    data-file-name="{{ file.filename }}">
+                                                                <i class="fas fa-download"></i> Download
+                                                            </button>
+                                                        {% elif status == 'pending' %}
+                                                            <button class="btn btn-sm btn-secondary" disabled>
+                                                                <i class="fas fa-clock"></i> Pending
+                                                            </button>
+                                                        {% else %}
+                                                            <button class="btn btn-sm btn-warning request-access-btn" 
+                                                                    data-file-id="{{ file.id }}"
+                                                                    data-file-name="{{ file.filename }}">
+                                                                <i class="fas fa-hand-paper"></i> 
+                                                                {% if status == 'rejected' %}Request Again{% else %}Request Access{% endif %}
+                                                            </button>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <button class="btn btn-sm btn-success download-btn" 
+                                                        data-file-id="{{ file.id }}"
+                                                        data-file-name="{{ file.filename }}">
+                                                    <i class="fas fa-download"></i> Download
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if file.user != request.user %}
+                                                {% for file_id, status in file_access_status.items %}
+                                                    {% if file_id == file.id %}
+                                                        {% if status == 'approved' %}
+                                                            <span class="badge bg-success">
+                                                                <i class="fas fa-check"></i> Approved
+                                                            </span>
+                                                        {% elif status == 'pending' %}
+                                                            <span class="badge bg-warning">
+                                                                <i class="fas fa-clock"></i> Pending
+                                                            </span>
+                                                        {% elif status == 'rejected' %}
+                                                            <span class="badge bg-danger">
+                                                                <i class="fas fa-times"></i> Rejected
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">
+                                                                <i class="fas fa-lock"></i> No Access
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <span class="badge bg-primary">
+                                                    <i class="fas fa-crown"></i> Owner
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No files uploaded in the system yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- My Files Section -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-folder"></i> My Files ({{ files|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if files %}
+                    <div class="row">
+                        {% for file in files %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="card-title">
+                                                    <i class="fas fa-file text-primary"></i> 
+                                                    {{ file.filename }}
+                                                </h6>
+                                                <p class="card-text">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-clock"></i> 
+                                                        {{ file.uploaded_at|date:"M d, Y H:i" }}
+                                                    </small>
+                                                </p>
+                                            </div>
+                                            <button class="btn btn-sm btn-primary download-btn" 
+                                                    data-file-id="{{ file.id }}"
+                                                    data-file-name="{{ file.filename }}">
+                                                <i class="fas fa-download"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">You haven't uploaded any files yet.</p>
+                        <p class="text-muted">Use the upload form above to add your first file.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Shared With Me Section -->
+        {% if shared_files %}
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-share-alt"></i> Shared With Me ({{ shared_files|length }})</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for file in shared_files %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="card-title">
+                                                <i class="fas fa-file text-success"></i> 
+                                                {{ file.filename }}
+                                            </h6>
+                                            <p class="card-text">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-user-shield"></i> 
+                                                    Shared by: {{ file.user.username }}
+                                                </small>
+                                                <br>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock"></i> 
+                                                    {{ file.uploaded_at|date:"M d, Y H:i" }}
+                                                </small>
+                                            </p>
+                                        </div>
+                                        <button class="btn btn-sm btn-success download-btn" 
+                                                data-file-id="{{ file.id }}"
+                                                data-file-name="{{ file.filename }}">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- DDoS Test Section -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-shield-alt"></i> DDoS Protection Test</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Test the DDoS detection system with simulated network traffic.</p>
+                <button onclick="testDDoS()" class="btn btn-outline-danger">
+                    <i class="fas fa-bolt"></i> Test DDoS Detection
+                </button>
+                <div id="ddosResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Request Access Modal -->
+    <div class="modal fade" id="requestAccessModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-hand-paper"></i> Request File Access</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        You are requesting access to: <strong id="requestFileName"></strong>
+                    </div>
+                    <form id="requestAccessForm" method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="file_id" id="requestFileId">
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-camera"></i> Face Verification Required
+                            </label>
+                            <input type="file" class="form-control" name="face_image" accept="image/*" required>
+                            <small class="text-muted">
+                                Take a clear selfie to verify your identity for this access request.
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-warning w-100">
+                            <i class="fas fa-paper-plane"></i> Send Access Request
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Download Modal -->
+    <div class="modal fade" id="downloadModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-download"></i> Download File</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        <i class="fas fa-file-download"></i>
+                        Ready to download: <strong id="downloadFileName"></strong>
+                    </div>
+                    <form id="downloadForm" method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="file_id" id="downloadFileId">
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-camera"></i> Face Verification Required
+                            </label>
+                            <input type="file" class="form-control" name="face_image" accept="image/*" required>
+                            <small class="text-muted">
+                                Take a clear selfie to verify your identity before downloading.
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-check-circle"></i> Verify Identity & Download
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap & JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Wait for DOM to load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Request Access buttons
+            const requestButtons = document.querySelectorAll('.request-access-btn');
+            requestButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const fileId = this.getAttribute('data-file-id');
+                    const fileName = this.getAttribute('data-file-name');
+                    showRequestModal(fileId, fileName);
+                });
+            });
+            
+            // Download buttons
+            const downloadButtons = document.querySelectorAll('.download-btn');
+            downloadButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const fileId = this.getAttribute('data-file-id');
+                    const fileName = this.getAttribute('data-file-name');
+                    showDownloadModal(fileId, fileName);
+                });
+            });
+
+            // Form validation
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    const fileInputs = this.querySelectorAll('input[type="file"]');
+                    let allFilesSelected = true;
+                    
+                    fileInputs.forEach(input => {
+                        if (input.required && !input.files.length) {
+                            allFilesSelected = false;
+                            input.classList.add('is-invalid');
+                        } else {
+                            input.classList.remove('is-invalid');
+                        }
+                    });
+                    
+                    if (!allFilesSelected) {
+                        e.preventDefault();
+                        alert('Please select all required files before submitting.');
+                    }
+                });
+            });
+        });
+
+        function showRequestModal(fileId, fileName) {
+            document.getElementById('requestFileId').value = fileId;
+            document.getElementById('requestFileName').textContent = fileName;
+            document.getElementById('requestAccessForm').action = '/request-access/' + fileId + '/';
+            
+            const modal = new bootstrap.Modal(document.getElementById('requestAccessModal'));
+            modal.show();
+        }
+
+        function showDownloadModal(fileId, fileName) {
+            document.getElementById('downloadFileId').value = fileId;
+            document.getElementById('downloadFileName').textContent = fileName;
+            document.getElementById('downloadForm').action = '/download-file/' + fileId + '/';
+            
+            const modal = new bootstrap.Modal(document.getElementById('downloadModal'));
+            modal.show();
+        }
+
+        // DDoS Test Function
+        function testDDoS() {
+            const resultDiv = document.getElementById('ddosResult');
+            resultDiv.innerHTML = '<div class="alert alert-info">Testing DDoS detection system...</div>';
+            
+            // Simulate network traffic data
+            const networkData = {
+                packet_count: Math.random() > 0.5 ? 50 : 500,
+                byte_count: Math.random() > 0.5 ? 5000 : 50000,
+                protocol: 6,
+                duration: 10,
+                source_port: 443,
+                dest_port: 80,
+                packet_rate: 100,
+                byte_rate: 10000,
+                flag_count: 5,
+                unique_ips: 3
+            };
+            
+            fetch("{% url 'detect_ddos' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(networkData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.is_ddos) {
+                    resultDiv.innerHTML = '<div class="alert alert-danger">🚨 DDoS Attack Detected! System is protecting your files.</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="alert alert-success">✅ Normal Traffic - No DDoS Detected</div>';
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = '<div class="alert alert-warning">⚠️ Test failed. Please try again.</div>';
+            });
+        }
+    </script>
+</body>
+</html>
