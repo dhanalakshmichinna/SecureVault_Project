@@ -54,7 +54,7 @@ TEMPLATES = [
 import pymysql
 pymysql.install_as_MySQLdb()
 
-DATABASES = {
+'''DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'project',
@@ -63,16 +63,16 @@ DATABASES = {
         'HOST': 'localhost',
         'PORT': '3306',
     }
-}
+}'''
 
 
-'''# Use SQLite (default)
+# Use SQLite (default)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': 'db.sqlite3',
     }
-}'''
+}
 
 AUTH_USER_MODEL = 'cloud_security.CustomUser'
 
